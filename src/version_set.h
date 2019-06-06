@@ -90,7 +90,7 @@ class VersionSet {
 
   Status WriteSnapshot(log::Writer* log);
   
-  void Apply(VersionEdit* edit);
+  void Apply(VersionEdit* edit, bool gc_score);
 
   void MarkFileObsolete(std::shared_ptr<BlobFileMeta> file, SequenceNumber obsolete_sequence, uint32_t cf_id);
 

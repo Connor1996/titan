@@ -80,12 +80,16 @@ Status VersionSet::Recover() {
       VersionEdit edit;
       s = DecodeInto(record, &edit);
       if (!s.ok()) return s;
-      Apply(&edit);
+      Apply(&edit, false);
       if (edit.has_next_file_number_) {
         assert(edit.next_file_number_ >= next_file_number);
         next_file_number = edit.next_file_number_;
         has_next_file_number = true;
       }
+    }
+
+    for (auto& cf: column_families_) {
+      cf.second->ComputeGCScore();
     }
   }
 
@@ -215,11 +219,11 @@ Status VersionSet::LogAndApply(VersionEdit* edit) {
   }
   if (!s.ok()) return s;
 
-  Apply(edit);
+  Apply(edit, true);
   return s;
 }
 
-void VersionSet::Apply(VersionEdit* edit) {
+void VersionSet::Apply(VersionEdit* edit, bool gc_score) {
   auto cf_id = edit->column_family_id_;
   auto it = column_families_.find(cf_id);
   if (it == column_families_.end()) {
@@ -255,7 +259,9 @@ void VersionSet::Apply(VersionEdit* edit) {
     it->second->AddBlobFile(file);
   }
 
-  it->second->ComputeGCScore();
+  if (gc_score) {
+    it->second->ComputeGCScore();
+  }
 }
 
 void VersionSet::AddColumnFamilies(const std::map<uint32_t, TitanCFOptions>& column_families) {

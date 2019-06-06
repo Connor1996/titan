@@ -74,7 +74,7 @@ class VersionTest : public testing::Test {
 
   void BuildAndCheck(std::vector<VersionEdit> edits) {
     for (auto& edit : edits) {
-      vset_->Apply(&edit);
+      vset_->Apply(&edit, true);
     }
     for (auto& it : vset_->column_families_) {
       auto& storage = column_families_[it.first];
