@@ -237,10 +237,10 @@ void VersionSet::Apply(VersionEdit* edit, bool gc_score) {
     auto blob_it = files.find(number);
     if (blob_it == files.end()) {
       fprintf(stderr, "blob file %" PRIu64 " doesn't exist before\n", number);
-      abort();
+      continue;
     } else if (blob_it->second->is_obsolete()) {
-      fprintf(stderr, "blob file %" PRIu64 " has been deleted before\n", number);
-      abort();
+      fprintf(stderr, "blob file %" PRIu64 " has been deleted already\n", number);
+      continue;
     }
     MarkFileObsolete(blob_it->second, file.second, cf_id);
   }
@@ -254,7 +254,7 @@ void VersionSet::Apply(VersionEdit* edit, bool gc_score) {
       } else {
         fprintf(stderr, "blob file %" PRIu64 " has been added before\n", number);
       }
-      abort();
+      continue;
     }
     it->second->AddBlobFile(file);
   }
