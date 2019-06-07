@@ -583,8 +583,9 @@ void TitanDBImpl::OnCompactionCompleted(
     for (const auto& o : outputs) {
       auto file = bs->FindFile(o).lock();
       if (!file) {
-        fprintf(stderr, "OnCompactionCompleted get file failed\n");
-        abort();
+        fprintf(stderr, "OnCompactionCompleted get file %lu failed\n",
+          o);
+        continue;
       }
       file->FileStateTransit(BlobFileMeta::FileEvent::kCompactionCompleted);
     }
