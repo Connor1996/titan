@@ -90,6 +90,9 @@ BlobGCJob::BlobGCJob(BlobGC* blob_gc, DB* db, port::Mutex* mutex,
       stats_(stats) {}
 
 BlobGCJob::~BlobGCJob() {
+  ROCKS_LOG_BUFFER(log_buffer_, "key_relocated:%" PRIu64 "keys_overwritten:%" PRIu64,
+      metrics_.blob_db_gc_num_keys_relocated, metrics_.blob_db_gc_num_keys_overwritten);
+
   if (log_buffer_) {
     log_buffer_->FlushBufferToLog();
     LogFlush(db_options_.info_log.get());
@@ -131,7 +134,7 @@ Status BlobGCJob::Run() {
     if (!tmp2.empty()) {
       tmp2.append(" ");
     }
-    tmp2.append(std::to_string(f->file_number()));
+    tmp2.append(std::to_string(f->file_number()) + "(" + std::to_string(f->file_size()) + "," + std::to_string(f->discardable_size()));
   }
 
   ROCKS_LOG_BUFFER(log_buffer_, "[%s] Titan GC candidates[%s] selected[%s]",
@@ -218,7 +221,7 @@ Status BlobGCJob::DoSample(const BlobFileMeta* file, bool* selected) {
     uint64_t total_length = blob_index.blob_handle.size;
     iterated_size += total_length;
     bool discardable = false;
-    s = DiscardEntry(iter.key(), blob_index, &discardable);
+    s = DiscardEntry(iter.key(), blob_index, &discardable, false);
     if (!s.ok()) {
       return s;
     }
@@ -287,7 +290,7 @@ Status BlobGCJob::DoRunGC() {
     }
 
     bool discardable = false;
-    s = DiscardEntry(gc_iter->key(), blob_index, &discardable);
+    s = DiscardEntry(gc_iter->key(), blob_index, &discardable, true);
     if (!s.ok()) {
       break;
     }
@@ -393,7 +396,7 @@ Status BlobGCJob::BuildIterator(
 }
 
 Status BlobGCJob::DiscardEntry(const Slice& key, const BlobIndex& blob_index,
-                               bool* discardable) {
+                               bool* discardable, bool print) {
   assert(discardable != nullptr);
   PinnableSlice index_entry;
   bool is_blob_index = false;
@@ -405,10 +408,23 @@ Status BlobGCJob::DiscardEntry(const Slice& key, const BlobIndex& blob_index,
   }
   // count read bytes for checking LSM entry
   metrics_.blob_db_bytes_read += key.size() + index_entry.size();
-  if (s.IsNotFound() || !is_blob_index) {
+  if (s.IsNotFound()) {
+    *discardable = true;
+    if (print) {
+      ROCKS_LOG_BUFFER(log_buffer_, "key %s from blob file %" PRIu64 " is discarded due to not found in LSM",
+      key.ToString().c_str(), blob_index.file_number);
+    }
+    return Status::OK();
+  }
+  
+  if (!is_blob_index) {
     // Either the key is deleted or updated with a newer version which is
     // inlined in LSM.
     *discardable = true;
+    if (print) {
+      ROCKS_LOG_BUFFER(log_buffer_, "key %s from blob file %" PRIu64 " is discarded due to not blob index",
+        key.ToString().c_str(), blob_index.file_number);
+    }
     return Status::OK();
   }
 
@@ -419,6 +435,12 @@ Status BlobGCJob::DiscardEntry(const Slice& key, const BlobIndex& blob_index,
   }
 
   *discardable = !(blob_index == other_blob_index);
+  if (*discardable == true) {
+    if (print) {
+      ROCKS_LOG_BUFFER(log_buffer_, "key %s from blob file %" PRIu64 " is discarded due to updated blob index of blob file:%",
+        key.ToString().c_str(), blob_index.file_number, other_blob_index.file_number);
+    }
+  }
   return Status::OK();
 }
 

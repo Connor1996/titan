@@ -77,7 +77,7 @@ class BlobGCJob {
   Status DoRunGC();
   Status BuildIterator(std::unique_ptr<BlobFileMergeIterator>* result);
   Status DiscardEntry(const Slice& key, const BlobIndex& blob_index,
-                      bool* discardable);
+                      bool* discardable, bool print);
   Status InstallOutputBlobFiles();
   Status RewriteValidKeyToLSM();
   Status DeleteInputBlobFiles();
