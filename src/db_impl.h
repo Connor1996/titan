@@ -135,6 +135,9 @@ class TitanDBImpl : public TitanDB {
 
   void StartBackgroundTasks();
 
+  using TitanDB::DumpBlobStats;
+  void DumpBlobStats() const override;
+
   Status TEST_StartGC(uint32_t column_family_id);
   Status TEST_PurgeObsoleteFiles();
 

@@ -186,6 +186,8 @@ class TitanDB : public StackableDB {
   bool GetIntProperty(const Slice& property, uint64_t* value) override {
     return GetIntProperty(DefaultColumnFamily(), property, value);
   }
+
+  virtual void DumpBlobStats() const = 0;
 };
 
 }  // namespace titandb

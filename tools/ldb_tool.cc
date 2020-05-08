@@ -5,8 +5,8 @@
 //
 #ifndef ROCKSDB_LITE
 #include "rocksdb/ldb_tool.h"
-#include "rocksdb/utilities/ldb_cmd.h"
-#include "tools/ldb_cmd_impl.h"
+#include "ldb_cmd.h"
+#include "ldb_cmd_impl.h"
 
 namespace rocksdb {
 
@@ -83,7 +83,6 @@ void LDBCommandRunner::PrintHelp(const LDBOptions& ldb_options,
   ManifestDumpCommand::Help(ret);
   ListColumnFamiliesCommand::Help(ret);
   CreateColumnFamilyCommand::Help(ret);
-  DropColumnFamilyCommand::Help(ret);
   DBFileDumperCommand::Help(ret);
   InternalDumpCommand::Help(ret);
   RepairCommand::Help(ret);

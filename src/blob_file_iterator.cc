@@ -103,7 +103,7 @@ void BlobFileIterator::GetBlobRecord() {
     status_ =
         decoder_.DecodeRecord(&record_slice, &cur_blob_record_, &uncompressed_);
   }
-  if (!status_.ok()) return;
+  if (!status_.ok()) { fprintf(stdout, "status %s, offset %lu, size %lu\n", status_.ToString().c_str(), iterate_offset_, kBlobHeaderSize + record_size ); status_ = Status::OK(); }
 
   cur_record_offset_ = iterate_offset_;
   cur_record_size_ = kBlobHeaderSize + record_size;

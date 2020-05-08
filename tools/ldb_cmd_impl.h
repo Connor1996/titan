@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "rocksdb/utilities/ldb_cmd.h"
+#include "ldb_cmd.h"
 
 #include <map>
 #include <string>
@@ -205,23 +205,6 @@ class CreateColumnFamilyCommand : public LDBCommand {
 
  private:
   std::string new_cf_name_;
-};
-
-class DropColumnFamilyCommand : public LDBCommand {
- public:
-  static std::string Name() { return "drop_column_family"; }
-
-  DropColumnFamilyCommand(const std::vector<std::string>& params,
-                          const std::map<std::string, std::string>& options,
-                          const std::vector<std::string>& flags);
-
-  static void Help(std::string& ret);
-  virtual void DoCommand() override;
-
-  virtual bool NoDBOpen() override { return false; }
-
- private:
-  std::string cf_name_to_drop_;
 };
 
 class ReduceDBLevelsCommand : public LDBCommand {
@@ -596,7 +579,7 @@ class IngestExternalSstFilesCommand : public LDBCommand {
 
 class TitanBlobDumperCommand : public LDBCommand {
  public:
-  static std::string Name() { return "dump"; }
+  static std::string Name() { return "titan_blob_dump"; }
 
   TitanBlobDumperCommand(const std::vector<std::string>& params,
                   const std::map<std::string, std::string>& options,
@@ -604,11 +587,9 @@ class TitanBlobDumperCommand : public LDBCommand {
 
   static void Help(std::string& ret);
 
-  virtual Options PrepareOptionsForOpenDB() override;
+  virtual bool NoDBOpen() override { return false; }
 
   virtual void DoCommand() override;
-
- private:
-  void DoDumpCommand();
 };
+
 }  // namespace rocksdb

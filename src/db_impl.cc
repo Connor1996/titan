@@ -1178,5 +1178,90 @@ void TitanDBImpl::DumpStats() {
   log_buffer.FlushBufferToLog();
 }
 
+void TitanDBImpl::DumpBlobStats() const {
+  MutexLock l(&mutex_);
+
+
+  uint64_t data = 0;
+  uint64_t discard = 0;
+  uint64_t total = 0;
+  for (auto& cf: cf_info_) {
+    auto cf_id = cf.first;
+    auto blob_storage = blob_file_set_->GetBlobStorage(cf_id).lock(); 
+    std::map<uint64_t, std::weak_ptr<BlobFileMeta>> files;
+    blob_storage->ExportBlobFiles(files);
+
+    
+    for (auto& meta: files) {
+      std::unique_ptr<RandomAccessFileReader> file;
+      Status s = NewBlobFileReader(meta.first, 0, db_options_,
+                            env_options_, env_, &file);
+      if (!s.ok()) {
+        abort();
+      }
+      std::unique_ptr<BlobFileIterator> iter(new BlobFileIterator(
+          std::move(file), meta.first, meta.second.lock()->file_size(),
+         blob_storage->cf_options()));
+
+      std::string last_key;
+      bool last_key_valid = false;
+      iter->SeekToFirst();
+      assert(iter->Valid());
+
+      uint64_t discardable_size = 0;
+      uint64_t total_size = 0;
+      for (; iter->Valid(); iter->Next()) {
+        BlobIndex blob_index = iter->GetBlobIndex();
+        // fprintf(stdout, "blob handle offset %" PRIu64 ", size %" PRIu64 "\n", blob_index.blob_handle.offset, blob_index.blob_handle.size);
+        total_size += blob_index.blob_handle.size;
+        // if (!last_key.empty() && !iter->key().compare(last_key)) {
+        //   if (last_key_valid) {
+        //     discardable_size += blob_index.blob_handle.size;
+        //     continue;
+        //   }
+        // } else {
+        //   last_key = iter->key().ToString();
+        //   last_key_valid = false;
+        // }
+
+        auto cfh = db_impl_->GetColumnFamilyHandleUnlocked(cf_id);
+        PinnableSlice index_entry;
+        bool is_blob_index = false;
+        s = db_impl_->GetImpl(
+            ReadOptions(), cfh.get(), iter->key(), &index_entry,
+            nullptr /*value_found*/, nullptr /*read_callback*/, &is_blob_index);
+        if (!s.ok() && !s.IsNotFound()) {
+          abort();
+        }
+
+        bool discardable = false; 
+        if (s.IsNotFound() || !is_blob_index) {
+          // Either the key is deleted or updated with a newer version which is
+          // inlined in LSM.
+          discardable = true;
+        } else {
+          BlobIndex other_blob_index;
+          s = other_blob_index.DecodeFrom(&index_entry);
+          if (!s.ok()) {
+            abort();
+          }
+          discardable = !(blob_index == other_blob_index);
+        }
+        if (discardable) {
+          discardable_size += blob_index.blob_handle.size;
+          continue;
+        }
+        
+        // last_key_valid = true;
+      }
+      fprintf(stdout, "blob file %" PRIu64 ", size: %" PRIu64 "M, total: %" PRIu64 "M, discardable: %" PRIu64 "M, ratio: %lf\n", meta.first, meta.second.lock()->file_size()/1024/1024, total_size/1024/1024, discardable_size/1024/1024, discardable_size * 1.0 / total_size);
+      total += meta.second.lock()->file_size();
+      data += total_size;
+      discard += discardable_size;
+    }
+    fprintf(stdout, "cf %d in total: size: %" PRIu64 "M, total: %" PRIu64 "M, discard: %" PRIu64 "M\n", cf_id, total/1024/1024, data/1024/1024, discard/1024/1024);
+  }
+}
+
 }  // namespace titandb
 }  // namespace rocksdb
