@@ -17,7 +17,7 @@ namespace titandb {
 class EditCollector {
  public:
   // Add the edit into the batch.
-  Status AddEdit(const VersionEdit& edit) {
+  Status AddEdit(const VersionEdit& edit, Logger *log = nullptr) {
     if (sealed_)
       return Status::Incomplete(
           "Should be not called after Sealed() is called");
@@ -30,7 +30,7 @@ class EditCollector {
       if (!status_.ok()) return status_;
     }
     for (auto& file : edit.deleted_files_) {
-      status_ = collector.DeleteFile(file.first, file.second);
+      status_ = collector.DeleteFile(log, file.first, file.second);
       if (!status_.ok()) return status_;
     }
 
@@ -117,10 +117,12 @@ class EditCollector {
       return Status::OK();
     }
 
-    Status DeleteFile(uint64_t number, SequenceNumber obsolete_sequence) {
+    Status DeleteFile(Logger* log, uint64_t number, SequenceNumber obsolete_sequence) {
       if (deleted_files_.count(number) > 0) {
-        return Status::Corruption("Blob file " + ToString(number) +
-                                  " has been deleted twice");
+        ROCKS_LOG_ERROR(log,
+                            "Blob file %" PRIu64 
+                                  " has been deleted twice\n", number);
+        return Status::OK();
       }
       deleted_files_.emplace(number, obsolete_sequence);
       return Status::OK();

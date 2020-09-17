@@ -78,7 +78,7 @@ Status BlobFileSet::Recover() {
       VersionEdit edit;
       s = DecodeInto(record, &edit);
       if (!s.ok()) return s;
-      s = collector.AddEdit(edit);
+      s = collector.AddEdit(edit, db_options_.info_log.get());
       if (!s.ok()) return s;
     }
     s = collector.Seal(*this);
@@ -210,7 +210,7 @@ Status BlobFileSet::LogAndApply(VersionEdit& edit) {
   edit.EncodeTo(&record);
 
   EditCollector collector;
-  Status s = collector.AddEdit(edit);
+  Status s = collector.AddEdit(edit, db_options_.info_log.get());
   if (!s.ok()) return s;
   s = collector.Seal(*this);
   if (!s.ok()) return s;
